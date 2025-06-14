@@ -1,0 +1,85 @@
+services:
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+
+  orders-postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER:     postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB:       ordersdb
+    ports:
+      - "5432:5432"
+    volumes:
+      - orders_pgdata:/var/lib/postgresql/data
+
+  payments-postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER:     postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB:       paymentsdb
+    ports:
+      - "5433:5432"
+    volumes:
+      - payments_pgdata:/var/lib/postgresql/data
+
+  orders-service:
+    build:
+      context: .
+      dockerfile: OrdersService.Api/Dockerfile
+    environment:
+      ASPNETCORE_URLS: "http://+:80"
+
+      ConnectionStrings__Orders: "Host=orders-postgres;Port=5432;Database=ordersdb;Username=postgres;Password=postgres"
+
+      RabbitMQ__HostName: rabbitmq
+      RabbitMQ__Port:     "5672"
+      RabbitMQ__UserName: guest
+      RabbitMQ__Password: guest
+    ports:
+      - "7001:80"
+    depends_on:
+      - rabbitmq
+      - orders-postgres
+
+  payments-service:
+    build:
+      context: .
+      dockerfile: PaymentsService.Api/Dockerfile
+    environment:
+      ASPNETCORE_URLS: "http://+:80"
+
+      ConnectionStrings__Payments: "Host=payments-postgres;Port=5432;Database=paymentsdb;Username=postgres;Password=postgres"
+
+      RabbitMQ__HostName: rabbitmq
+      RabbitMQ__Port:     "5672"
+      RabbitMQ__UserName: guest
+      RabbitMQ__Password: guest
+    ports:
+      - "7002:80"
+    depends_on:
+      - rabbitmq
+      - payments-postgres
+
+  api-gateway:
+    build:
+      context: .
+      dockerfile: ApiGateway/Dockerfile
+    environment:
+      ASPNETCORE_URLS: "http://+:80"
+    ports:
+      - "7000:80"
+    depends_on:
+      - orders-service
+      - payments-service
+
+volumes:
+  orders_pgdata:
+  payments_pgdata:
