@@ -92,7 +92,7 @@ dotnet ef database update
 
 ---
 
-## Структура репозитория
+## Структура решения
 
 ```
 ├── ApiGateway/
